@@ -580,8 +580,9 @@ static void reportsMenu(Inventory *inv)
             case 1: report_current_stock(inv, stdout); break;
             case 2: report_low_stock(inv, stdout); break;
             case 3:
-                 transactionMenu(inv);
-                break;
+                std::cout << "Total inventory value: "
+              << report_total_value(inv) << "\n";
+            break;
             case 0: return;
             default: std::cout << "Invalid option.\n";
         }
