@@ -4,6 +4,32 @@
 
 This code book documents the data structures, relationships, source modules, validation rules and persistence format of the Grocery Shop Inventory Management System. The application uses C11 for core inventory operations, persistence and reporting, and C++17 for the command-line interface.
 
+## Language Split and Build Process
+
+The application uses both C and C++ to separate the core inventory functionality from the application entry point.
+
+- **Why C and C++ are compiled separately:** Files ending in `.c` (`inventory.c`, `persistence.c`, and `report.c`) are compiled as C11, while `main.cpp` is compiled as C++17. They are compiled separately because the languages have different compilation rules and name-linking conventions.
+- **Why the final link uses the C++ compiler (`cl` in C++ mode):** The final linking step uses the C++ compiler driver because the application entry point is written in C++. This ensures the C++ runtime and required C++ support are linked correctly alongside the compiled C object files.
+- **Purpose of `extern "C"` guards:** C++ normally changes function names during compilation (name mangling), while C uses different naming conventions. The `extern "C"` guards tell the C++ compiler to use C linkage for declarations of functions implemented in C. This allows `main.cpp` to call functions from the C modules successfully.
+
+The guards belong in the shared header files that declare C functions and are included by the C++ source file. They are typically written as:
+
+```c
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* C function declarations */
+
+#ifdef __cplusplus
+}
+#endif
+```
+
+The `__cplusplus` checks ensure that the guards affect C++ compilation only, so the same headers can also be included by C source files.
+
+**Build sequence:** Compile each `.c` file as C, compile `main.cpp` as C++, then link the resulting object files using the C++ compiler driver. The final executable combines both languages into one application.
+
 ## 2. Data Structures
 
 ### 2.1 Product
