@@ -1,0 +1,22 @@
+# Compiled output
+build/
+*.o
+*.opp
+*.obj
+*.exe
+
+# Python caches, if any tools are later added
+__pycache__/
+*.pyc
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Editor and operating system files
+.vscode/
+.DS_Store
+Thumbs.db
+*.pdb
+*.ilk

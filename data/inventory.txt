@@ -1,0 +1,11 @@
+# Grocery inventory data
+[PRODUCTS]
+1001|Sunflower Oil 1L|Oil|bottle|49|12|3.49|
+1002|Sugar|Sugar|5kg|0|8|9.00|
+[SUPPLIERS]
+[TRANSACTIONS]
+1|2026-10-27T11:11:20|0|1001|3|-1|cooking oil in 
+2|2026-10-27T11:11:37|1|1001|-2|-1|cooking oil sold 
+3|2026-10-27T11:35:50|0|1002|3|-1|sugar in 
+4|2026-10-27T11:39:12|1|1002|-3|-1|sugar sold 
+5|2026-10-27T11:43:16|1|1002|-7|-1|sugar out 
