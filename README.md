@@ -1,57 +1,65 @@
 # Grocery Shop Inventory Management System
 
-A command-line inventory management application for a grocery shop, implemented using a hybrid C and C++ design.
+## Overview
+A command-line application for managing grocery shop products, suppliers, stock transactions, and inventory reports. It uses C11 for core inventory operations and C++17 for the user interface.
 
 ## Features
+- Add, edit, remove, search, and sort products.
+- Manage supplier records.
+- Record stock-in, stock-out, and stock adjustments.
+- Validate stock quantities and prevent negative inventory.
+- Generate stock, low-stock, transaction history, and inventory valuation reports.
+- Save and reload inventory data using a text file.
 
-- Product and supplier records
-- Inventory transaction tracking
-- Stock and low-stock reports
-- Inventory valuation
-- Text-file persistence
-
-## Technology
-
-- C11 for inventory management, persistence, and reports
-- C++17 for the application entry point and RAII wrapper
-- Make for building the application
+## Technologies
+- C11 and C++17
+- Microsoft Visual C++ (MSVC) on Windows
+- Git and GitHub for version control
 
 ## Project Structure
+- `src/` — implementation files.
+- `include/` — shared headers and data structure declarations.
+- `data/inventory.txt` — persistent inventory records.
+- `docs/` — code book and all relevant project documentation 
+- `build/` — generated executable and object files.
+- `Makefile` — build automation for compatible GCC/Clang environments.
 
-- `include/` — shared header files
-- `src/` — C and C++ source files
-- `data/` — saved inventory data
-- `docs/` — project documentation
-- `build/` — generated build output
+## Build and Run on Windows
+Open the **x64 Native Tools Command Prompt for Visual Studio** and navigate to the project root.
 
-## Build
+Create the build directory if needed:
 
-From the project root, run:
-
-```bash
-make
+```bat
+if not exist build mkdir build
 ```
 
-## Run
+Compile the C modules:
 
-On Linux or a compatible shell:
-
-```bash
-./build/grocery_inventory
+```bat
+cl /nologo /std:c11 /W4 /I include /c src\inventory.c /Fo:build\inventory.obj
+cl /nologo /std:c11 /W4 /I include /c src\persistence.c /Fo:build\persistence.obj
+cl /nologo /std:c11 /W4 /I include /c src\report.c /Fo:build\report.obj
 ```
 
-On Windows, the executable may be named `grocery_inventory.exe`, depending on the compiler and build environment.
+Compile and link the C++ application:
 
-## Clean
-
-```bash
-make clean
+```bat
+cl /nologo /std:c++17 /EHsc /W4 /I include /c src\main.cpp /Fo:build\main.obj
+cl /nologo /EHsc build\inventory.obj build\persistence.obj build\report.obj build\main.obj /Fe:build\grocery_inventory.exe
 ```
 
-## Data Format
+Run the application from the project root:
 
-Inventory data is stored in `data/inventory.txt` using pipe-separated fields in the PRODUCTS, SUPPLIERS, and TRANSACTIONS sections.
+```bat
+build\grocery_inventory.exe
+```
 
-## Status
+The project also includes a Makefile for compatible GCC/Clang environments.
 
-This is the initial implementation and requires compilation and functional testing before submission.
+## Data Persistence
+Inventory records are stored in `data/inventory.txt`. The file contains `[PRODUCTS]`, `[SUPPLIERS]`, and `[TRANSACTIONS]` sections, using pipe-separated fields. Keep the file in the expected location when running the application.
+
+See [`docs/codebook.md`](docs/codebook.md) for the data structures, relationships, file format, and persistence details.
+
+## Testing
+The application has been exercised through its command-line interface, including inventory operations, transactions, reports, and saving and reloading data. Specific edge-case test results should be documented in the Phase 2 implementation report.
