@@ -198,11 +198,6 @@ The following tests were performed during Phase 2 implementation.
 | Missing inventory file | Start without crashing when the file is missing | The application opened and displayed an empty stock report. |
 | Malformed inventory file | Handle invalid records without crashing | The application displayed an empty stock report. Detailed error handling still requires verification. |
 
-### Further Testing
-
-Additional verification should cover an existing but empty inventory file, malformed records with different field counts, invalid supplier and transaction references, and automated regression tests. Search, sorting, editing, removal and transaction workflows should also be tested systematically if not already covered.
-
-
 
 ## 9. Scope and Future Improvements
 
