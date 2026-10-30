@@ -8,9 +8,9 @@ This code book documents the data structures, relationships, source modules, val
 
 The application uses both C and C++ to separate the core inventory functionality from the application entry point.
 
-- **Why C and C++ are compiled separately:** Files ending in `.c` (`inventory.c`, `persistence.c`, and `report.c`) are compiled as C11, while `main.cpp` is compiled as C++17. They are compiled separately because the languages have different compilation rules and name-linking conventions.
-- **Why the final link uses the C++ compiler (`cl` in C++ mode):** The final linking step uses the C++ compiler driver because the application entry point is written in C++. This ensures the C++ runtime and required C++ support are linked correctly alongside the compiled C object files.
-- **Purpose of `extern "C"` guards:** C++ normally changes function names during compilation (name mangling), while C uses different naming conventions. The `extern "C"` guards tell the C++ compiler to use C linkage for declarations of functions implemented in C. This allows `main.cpp` to call functions from the C modules successfully.
+-  Files ending in `.c` (`inventory.c`, `persistence.c`, and `report.c`) are compiled as C11, while `main.cpp` is compiled as C++17. They are compiled separately because the languages have different compilation rules and name-linking conventions.
+- The final linking step uses the C++ compiler driver because the application entry point is written in C++. This ensures the C++ runtime and required C++ support are linked correctly alongside the compiled C object files.
+- C++ normally changes function names during compilation (name mangling), while C uses different naming conventions. The `extern "C"` guards tell the C++ compiler to use C linkage for declarations of functions implemented in C. This allows `main.cpp` to call functions from the C modules successfully.
 
 The guards belong in the shared header files that declare C functions and are included by the C++ source file. They are typically written as:
 
