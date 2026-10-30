@@ -183,10 +183,26 @@ The application was compiled on Windows using Microsoft Visual C++ (MSVC), with 
 The root `README.md` provides the build and run commands. A Makefile is also included for compatible GCC/Clang environments.
 
 ## 8. Testing and Evidence
+## Testing and Verification
 
-Testing should cover product and supplier management, transactions, quantity updates, reports, and persistence across a restart. Edge cases should include empty inventory, invalid input, duplicate identifiers, negative stock, missing files and malformed records.
+The following tests were performed during Phase 2 implementation.
 
-For each test, document the input, expected result, actual result and pass/fail outcome. Include screenshots of genuine application output in the Phase 2 presentation where useful. Do not claim a test passed unless it was performed.
+| Test | Expected behaviour | Observed result |
+|---|---|---|
+| Invalid menu input | Reject invalid input | Passed — validation message displayed. |
+| Negative product quantity (-5) | Reject negative quantity | Passed — “Invalid product details.” displayed. |
+| Duplicate product name | Prevent duplicate products | Passed — duplicate-name message displayed. |
+| Low-stock report | Identify stock below the reorder threshold | Passed — Sugar had 7 units against a threshold of 8. |
+| Total inventory value | Calculate and display total value | Passed — displayed 234.01. |
+| Persistence across restart | Retain saved inventory data | Passed — Sunflower Oil 1L (49 units) and Sugar (7 units) remained after restarting. |
+| Missing inventory file | Start without crashing when the file is missing | The application opened and displayed an empty stock report. |
+| Malformed inventory file | Handle invalid records without crashing | The application displayed an empty stock report. Detailed error handling still requires verification. |
+
+### Further Testing
+
+Additional verification should cover an existing but empty inventory file, malformed records with different field counts, invalid supplier and transaction references, and automated regression tests. Search, sorting, editing, removal and transaction workflows should also be tested systematically if not already covered.
+
+
 
 ## 9. Scope and Future Improvements
 
