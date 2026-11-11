@@ -158,15 +158,15 @@ id|name|contact_person|phone|email
 
 The fields represent the supplier ID, name, contact person, phone number and email address.
 
-### 6.3 Transaction record
+### 6.3 Transaction Type Encoding
 
-```text
-id|timestamp|type|product_id|quantity_delta|supplier_id|note
-```
+Transaction types are stored as readable text values rather than numeric enumeration values. The supported values are:
 
-The fields represent the transaction ID, timestamp, transaction type, affected product ID, quantity change, supplier ID and transaction note.
+- `IN` – Stock received.
+- `OUT` – Stock issued or sold.
+- `ADJUSTMENT` – Manual stock adjustment.
 
-Transaction type values are stored numerically according to the enumeration: `0` for `TX_IN`, `1` for `TX_OUT`, and `2` for `TX_ADJUSTMENT`.
+During loading, these text values are converted into their corresponding `TransactionType` enumeration constants using string comparison. This approach avoids coupling the saved file format to the order of values in the enum declaration and improves readability and maintainability.
 
 ### 6.4 Save and load process
 
