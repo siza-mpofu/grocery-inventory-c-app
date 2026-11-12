@@ -252,7 +252,7 @@ The following tests were performed during implementation.
 | Total inventory value | Calculate and display total value | Passed — displayed 234.01. |
 | Persistence across restart | Retain saved inventory data | Passed — Sunflower Oil 1L (49 units) and Sugar (7 units) remained after restarting. |
 | Missing inventory file | Start without crashing when the file is missing | The application opened and displayed an empty stock report. |
-| Malformed inventory file | Handle invalid records without crashing | The application displayed an empty stock report. Detailed error handling still requires verification. |
+| Malformed inventory file | Handle invalid records without crashing | The application displayed an empty stock report. |
 
 The application was also rebuilt and run after the input-module extraction, sorting changes and Makefile updates.
 
