@@ -2,17 +2,17 @@
 
 ## 1. Purpose and Technology
 
-This code book documents the data structures, relationships, source modules, validation rules and persistence format of the Grocery Shop Inventory Management System. The application uses C11 for core inventory operations, persistence and reporting, and C++17 for the command-line interface.
+This code book documents the data structures, relationships, source modules, validation rules, sorting operations and persistence format of the Grocery Shop Inventory Management System. The application uses C11 for core inventory operations, persistence and reporting, and C++17 for the command-line interface.
 
 ## Language Split and Build Process
 
 The application uses both C and C++ to separate the core inventory functionality from the application entry point.
 
--  Files ending in `.c` (`inventory.c`, `persistence.c`, and `report.c`) are compiled as C11, while `main.cpp` is compiled as C++17. They are compiled separately because the languages have different compilation rules and name-linking conventions.
+- Files ending in `.c` (`inventory.c`, `persistence.c`, and `report.c`) are compiled as C11, while `.cpp` files are compiled as C++17. They are compiled separately because the languages have different compilation rules and name-linking conventions.
 - The final linking step uses the C++ compiler driver because the application entry point is written in C++. This ensures the C++ runtime and required C++ support are linked correctly alongside the compiled C object files.
-- C++ normally changes function names during compilation (name mangling), while C uses different naming conventions. The `extern "C"` guards tell the C++ compiler to use C linkage for declarations of functions implemented in C. This allows `main.cpp` to call functions from the C modules successfully.
+- C++ normally changes function names during compilation (name mangling), while C uses different naming conventions. The `extern "C"` guards tell the C++ compiler to use C linkage for declarations of functions implemented in C. This allows C++ source files to call functions from the C modules successfully.
 
-The guards belong in the shared header files that declare C functions and are included by the C++ source file. They are typically written as:
+The guards belong in the shared header files that declare C functions and are included by C++ source files. They are typically written as:
 
 ```c
 #ifdef __cplusplus
@@ -28,7 +28,7 @@ extern "C" {
 
 The `__cplusplus` checks ensure that the guards affect C++ compilation only, so the same headers can also be included by C source files.
 
-**Build sequence:** Compile each `.c` file as C, compile `main.cpp` as C++, then link the resulting object files using the C++ compiler driver. The final executable combines both languages into one application.
+**Build sequence:** Compile each `.c` file as C, compile the `.cpp` files as C++, then link the resulting object files using the C++ compiler driver. The final executable combines both languages into one application.
 
 ## 2. Data Structures
 
@@ -93,10 +93,12 @@ When a transaction is recorded, the inventory logic updates the affected product
 
 | File | Responsibility |
 |---|---|
-| `src/inventory.c` | Manages product, supplier and transaction records and core inventory operations |
+| `src/inventory.c` | Manages product, supplier and transaction records, validation, sorting and core inventory operations |
 | `src/persistence.c` | Saves inventory records to a file and loads stored records |
 | `src/report.c` | Provides inventory reporting functions |
-| `src/main.cpp` | Implements the command-line menu and user interaction |
+| `src/main.cpp` | Implements the command-line menu and application entry point |
+| `src/ui_input.cpp` | Implements reusable input-reading and input-validation functions |
+| `src/ui_input.hpp` | Declares the reusable input functions used by the command-line interface |
 | `src/inventory_handle.hpp` | Provides the C++ inventory wrapper |
 | `include/product.h` | Declares the Product structure |
 | `include/supplier.h` | Declares the Supplier structure |
@@ -104,6 +106,8 @@ When a transaction is recorded, the inventory logic updates the affected product
 | `include/inventory.h` | Declares inventory operation interfaces |
 | `include/persistence.h` | Declares persistence interfaces |
 | `include/report.h` | Declares reporting interfaces |
+
+Input-handling functions such as `readInt`, `readDouble`, `requireInt`, `requireDouble` and `readText` were extracted from `main.cpp` into a separate input module. This reduces the responsibility of the main application file and allows input handling to be reused.
 
 ## 5. Core Operations and Validation
 
@@ -117,9 +121,43 @@ The implemented operations include:
 - Generating current-stock, low-stock, transaction-history and inventory-value reports.
 - Saving inventory data and loading it again.
 
-The design requires unique IDs, valid relationships between records, and non-negative stock. Products with transaction history must not be deleted, and a product retains a fixed measurement unit. Pipe characters (`|`) must not be used within text fields in the persistence format.
+### 5.1 Validation Rules
 
-The test record should confirm the actual behaviour of invalid input, duplicate IDs, negative quantities, empty inventory, and missing or malformed files. A rule should only be reported as successfully tested when its behaviour has been verified.
+The implemented validation rules include:
+
+- Product names must be unique.
+- Product IDs must be unique when an explicit ID is supplied, such as when loading saved records. Newly added products receive their IDs through the inventory logic.
+- Product quantities cannot be negative.
+- Stock-out operations cannot reduce available stock below zero.
+- Products with transaction history must not be deleted.
+- A product retains a fixed measurement unit.
+- Pipe characters (`|`) must not be used within text fields in the persistence format.
+
+### 5.2 Product Editing and Stock Changes
+
+Product editing allows product details to be changed without directly modifying the current stock quantity.
+
+Quantity is intentionally not editable through the product-editing operation. All stock changes must be recorded through transactions so that the stock movement history is preserved. This maintains an audit trail of stock received, stock issued and manual adjustments.
+
+### 5.3 Sorting
+
+Product sorting is implemented using the standard C library function `qsort()`.
+
+The sorting functions use comparison functions to determine the ordering of products:
+
+- `cmp_name` compares product names using `strcmp()`.
+- `cmp_quantity` compares product quantities.
+- `cmp_category` compares product categories.
+
+The comparison functions are passed to `qsort()` together with the product array and its number of elements. This replaces manually implemented sorting loops and allows the standard library sorting function to perform the ordering.
+
+### 5.4 Pointer Ownership and Lifetime
+
+Functions that return pointers to products provide access to records stored inside the inventory's internal array. These pointers are not owned by the caller and must not be freed by the caller.
+
+Pointers returned by product lookup and search operations should not be retained across operations that add, remove or otherwise modify the product array, because the array may be reallocated or its contents may change.
+
+Callers should use these pointers only while the underlying product array remains valid.
 
 ## 6. Persistence and File Format
 
@@ -137,20 +175,28 @@ Example file structure:
 1001|Sunflower Oil 1L|Oil|bottle|49|12|3.49|
 [SUPPLIERS]
 [TRANSACTIONS]
-1|2026-10-27T11:11:20|0|1001|3|-1|cooking oil in
+1|2026-10-27T11:11:20|IN|1001|3|-1|cooking oil in
 ```
 
 This is an illustrative example. Actual records depend on the saved inventory.
 
-### 6.1 Product record
+### 6.1 Product Record
 
 ```text
 id|name|category|unit|quantity_on_hand|reorder_threshold|unit_price|supplier_ids
 ```
 
-The fields represent the product ID, name, category, unit, quantity, reorder threshold, price per unit, and associated supplier IDs. The final field may be empty when no supplier IDs are stored.
+The fields represent the product ID, name, category, unit, quantity, reorder threshold, price per unit, and associated supplier IDs.
 
-### 6.2 Supplier record
+The final field may be empty when no supplier IDs are stored. For example:
+
+```text
+1001|Sunflower Oil 1L|Oil|bottle|49|12|3.49|
+```
+
+The trailing pipe represents the empty final supplier ID field.
+
+### 6.2 Supplier Record
 
 ```text
 id|name|contact_person|phone|email
@@ -166,26 +212,36 @@ Transaction types are stored as readable text values rather than numeric enumera
 - `OUT` – Stock issued or sold.
 - `ADJUSTMENT` – Manual stock adjustment.
 
-During loading, these text values are converted into their corresponding `TransactionType` enumeration constants using string comparison. This approach avoids coupling the saved file format to the order of values in the enum declaration and improves readability and maintainability.
+During loading, these text values are converted into their corresponding `TransactionType` enumeration constants using string comparison.
 
-### 6.4 Save and load process
+The loader also accepts legacy numeric transaction type values (`0`, `1` and `2`) for compatibility with previously saved inventory files. New records are saved using the readable text values.
 
-The persistence module writes inventory records to a temporary file before attempting to replace the existing file. Loading reads the file's sections and reconstructs records in memory.
+This approach avoids making the current saved file format dependent on the order of values in the enum declaration and improves readability and maintainability.
+
+### 6.4 Save and Load Process
+
+The persistence module writes inventory records to a temporary file before attempting to replace the existing file. This helps prevent the original inventory file from being overwritten by an incomplete save operation.
+
+Loading reads the file's sections and reconstructs records in memory. When a file is successfully opened for loading, the existing inventory records are cleared before the saved records are read. This means loading replaces the current inventory contents rather than appending the loaded records to them.
 
 The file must remain at `data/inventory.txt` relative to the working directory. The section headers and field order must be preserved, and text fields must not contain the pipe delimiter.
 
-Missing-file and malformed-file handling should be verified against the implementation and recorded test results. Keep a backup before manually editing saved inventory data.
+If the inventory file is missing, the application can start with an empty inventory. Malformed-file handling should be interpreted according to the actual parser behaviour and verified test results. Keep a backup before manually editing saved inventory data.
 
 ## 7. Build Environment
 
-The application was compiled on Windows using Microsoft Visual C++ (MSVC), with C11 for the C modules and C++17 for the application entry point.
+The application has been compiled and run successfully on Windows using two build environments:
 
-The root `README.md` provides the build and run commands. A Makefile is also included for compatible GCC/Clang environments.
+- **Microsoft Visual C++ (MSVC):** C11 for the C modules and C++17 for the application entry point.
+- **GCC/G++ with GNU Make:** MinGW-w64 GCC/G++ on Windows, using the supplied Makefile.
 
-## 8. Testing and Evidence
-## Testing and Verification
+The Makefile compiles the C source files as C11 and the C++ source files as C++17, then links the object files using the C++ compiler driver.
 
-The following tests were performed during Phase 2 implementation.
+The root `README.md` provides the prerequisites and build and run commands for both environments.
+
+## 8. Testing and Verification
+
+The following tests were performed during implementation.
 
 | Test | Expected behaviour | Observed result |
 |---|---|---|
@@ -198,6 +254,7 @@ The following tests were performed during Phase 2 implementation.
 | Missing inventory file | Start without crashing when the file is missing | The application opened and displayed an empty stock report. |
 | Malformed inventory file | Handle invalid records without crashing | The application displayed an empty stock report. Detailed error handling still requires verification. |
 
+The application was also rebuilt and run after the input-module extraction, sorting changes and Makefile updates.
 
 ## 9. Scope and Future Improvements
 
