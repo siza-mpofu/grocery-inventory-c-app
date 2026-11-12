@@ -1,0 +1,5 @@
+# Malformed inventory test
+[PRODUCTS]
+this is not a valid product record
+[SUPPLIERS]
+[TRANSACTIONS]

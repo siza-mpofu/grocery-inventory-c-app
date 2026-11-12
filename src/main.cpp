@@ -2,10 +2,13 @@
 #include "inventory_handle.hpp"
 #include "persistence.h"
 #include "report.h"
+#include "ui_input.hpp"
 
 #include <cstdio>
 #include <cstdlib>
 #include <cctype>
+#include <cerrno>
+#include <cmath>
 #include <iostream>
 #include <limits>
 #include <string>
@@ -16,83 +19,27 @@
 
 static const char *DATA_FILE = "data/inventory.txt";
 
-static int readInt(const char *prompt)
-{
-    std::string input;
-
-    while (true) {
-        std::cout << prompt;
-        if (!std::getline(std::cin, input)) return -1;
-
-        char *end = nullptr;
-        long value = std::strtol(input.c_str(), &end, 10);
-
-        while (end && std::isspace(static_cast<unsigned char>(*end)))
-            ++end;
-
-        if (end != input.c_str() && end && *end == '\0' &&
-            value >= std::numeric_limits<int>::min() &&
-            value <= std::numeric_limits<int>::max()) {
-            return static_cast<int>(value);
-        }
-
-        std::cout << "Enter a valid whole number.\n";
-    }
-}
-
-static double readDouble(const char *prompt)
-{
-    std::string input;
-
-    while (true) {
-        std::cout << prompt;
-        if (!std::getline(std::cin, input)) return -1.0;
-
-        char *end = nullptr;
-        double value = std::strtod(input.c_str(), &end);
-
-        while (end && std::isspace(static_cast<unsigned char>(*end)))
-            ++end;
-
-        if (end != input.c_str() && end && *end == '\0' &&
-            value >= 0.0 && value <= 1.0e12) {
-            return value;
-        }
-
-        std::cout << "Enter a valid non-negative amount.\n";
-    }
-}
-
-static std::string readText(const char *prompt)
-{
-    std::string input;
-
-    while (true) {
-        std::cout << prompt;
-
-        if (!std::getline(std::cin, input)) return "";
-
-        if (!input.empty() &&
-            input.find('|') == std::string::npos) {
-            return input;
-        }
-
-        std::cout << "Text cannot be empty or contain |.\n";
-    }
-}
+// --------------------------------------------------
+// TEXT COPYING HELPER
+// --------------------------------------------------
 
 template <size_t N>
-static void copyText(char (&destination)[N], const std::string &source)
+static void copyText(char (&destination)[N],
+                     const std::string &source)
 {
     std::snprintf(destination, N, "%s", source.c_str());
 }
+
+// --------------------------------------------------
+// PRODUCT FUNCTIONS
+// --------------------------------------------------
 
 static bool chooseCategory(Product &product)
 {
     std::cout << "\n1. Oil\n2. Rice\n3. Sugar\n4. Flour\n"
               << "5. Canned\n6. Drinks\n7. Other\n";
 
-    switch (readInt("Choose category: ")) {
+    switch (requireInt("Choose category: ")) {
         case 1: product.category = CAT_OIL; return true;
         case 2: product.category = CAT_RICE; return true;
         case 3: product.category = CAT_SUGAR; return true;
@@ -100,7 +47,10 @@ static bool chooseCategory(Product &product)
         case 5: product.category = CAT_CANNED; return true;
         case 6: product.category = CAT_DRINKS; return true;
         case 7: product.category = CAT_OTHER; return true;
-        default: std::cout << "Invalid category.\n"; return false;
+
+        default:
+            std::cout << "Invalid category.\n";
+            return false;
     }
 }
 
@@ -108,12 +58,14 @@ static void displayProduct(const Product &p)
 {
     std::cout << "\nID: " << p.id
               << "\nName: " << p.name
-              << "\nCategory code: " << static_cast<int>(p.category)
+              << "\nCategory code: "
+              << static_cast<int>(p.category)
               << "\nUnit: " << p.unit
               << "\nQuantity: " << p.quantity_on_hand
               << "\nReorder threshold: " << p.reorder_threshold
               << "\nUnit price: " << p.unit_price
-              << "\nStock value: " << p.quantity_on_hand * p.unit_price
+              << "\nStock value: "
+              << p.quantity_on_hand * p.unit_price
               << "\n";
 }
 
@@ -128,7 +80,9 @@ static void listProducts(Inventory *inv)
 
     for (size_t i = 0; i < count; ++i) {
         const Product *p = inventory_product_at(inv, i);
-        if (p) displayProduct(*p);
+
+        if (p)
+            displayProduct(*p);
     }
 }
 
@@ -137,20 +91,25 @@ static void addProduct(Inventory *inv)
     Product p{};
 
     copyText(p.name, readText("Product name: "));
-    if (!chooseCategory(p)) return;
+
+    if (!chooseCategory(p))
+        return;
+
     copyText(p.unit, readText("Unit: "));
 
-    p.quantity_on_hand = readInt("Opening quantity: ");
-    p.reorder_threshold = readInt("Low-stock threshold: ");
-    p.unit_price = readDouble("Unit price: ");
+    p.quantity_on_hand = requireInt("Opening quantity: ");
+    p.reorder_threshold = requireInt("Low-stock threshold: ");
+    p.unit_price = requireDouble("Unit price: ");
 
-    if (p.quantity_on_hand < 0 || p.reorder_threshold < 0 ||
+    if (p.quantity_on_hand < 0 ||
+        p.reorder_threshold < 0 ||
         p.unit_price < 0) {
         std::cout << "Invalid product details.\n";
         return;
     }
 
     int id = inventory_add_product(inv, &p);
+
     if (id > 0)
         std::cout << "Product added. ID: " << id << "\n";
     else
@@ -159,7 +118,8 @@ static void addProduct(Inventory *inv)
 
 static void editProduct(Inventory *inv)
 {
-    int id = readInt("Product ID to edit: ");
+    int id = requireInt("Product ID to edit: ");
+
     Product *old = inventory_find_product(inv, id);
 
     if (!old) {
@@ -167,29 +127,39 @@ static void editProduct(Inventory *inv)
         return;
     }
 
+    // Copy the product before editing.
+    // The existing stock quantity is deliberately preserved.
+
+    /* Quantity is intentionally not editable here; all stock changes
+       must flow through a Transaction to preserve the audit trail. */
+
     Product p = *old;
+
     copyText(p.name, readText("New product name: "));
-    if (!chooseCategory(p)) return;
+
+    if (!chooseCategory(p))
+        return;
+
     copyText(p.unit, readText("Unit: "));
 
-    p.quantity_on_hand = readInt("Quantity: ");
-    p.reorder_threshold = readInt("Low-stock threshold: ");
-    p.unit_price = readDouble("Unit price: ");
+    p.reorder_threshold =
+        requireInt("New low-stock threshold: ");
 
-    if (p.quantity_on_hand < 0 || p.reorder_threshold < 0 ||
-        p.unit_price < 0) {
+    p.unit_price = requireDouble("New unit price: ");
+
+    if (p.reorder_threshold < 0 || p.unit_price < 0) {
         std::cout << "Invalid details.\n";
         return;
     }
 
     std::cout << (inventory_edit_product(inv, id, &p)
-        ? "Product updated.\n"
+        ? "Product updated. Stock quantity was unchanged.\n"
         : "Update failed. Check the name and details.\n");
 }
 
 static void removeProduct(Inventory *inv)
 {
-    int id = readInt("Product ID to remove: ");
+    int id = requireInt("Product ID to remove: ");
 
     if (!inventory_find_product(inv, id)) {
         std::cout << "Product not found.\n";
@@ -209,12 +179,14 @@ static void removeProduct(Inventory *inv)
 static void searchProducts(Inventory *inv)
 {
     std::string term = readText("Search product name: ");
+
     std::vector<Product *> results(inventory_product_count(inv));
 
     size_t found = inventory_search_products(
         inv, term.c_str(), results.data());
 
-    if (!found) std::cout << "No matching products.\n";
+    if (!found)
+        std::cout << "No matching products.\n";
 
     for (size_t i = 0; i < found; ++i)
         displayProduct(*results[i]);
@@ -223,11 +195,15 @@ static void searchProducts(Inventory *inv)
 static void sortProducts(Inventory *inv)
 {
     std::cout << "1. Name\n2. Quantity\n3. Category\n";
-    int choice = readInt("Sort by: ");
 
-    if (choice == 1) inventory_sort_products_by_name(inv);
-    else if (choice == 2) inventory_sort_products_by_quantity(inv);
-    else if (choice == 3) inventory_sort_products_by_category(inv);
+    int choice = requireInt("Sort by: ");
+
+    if (choice == 1)
+        inventory_sort_products_by_name(inv);
+    else if (choice == 2)
+        inventory_sort_products_by_quantity(inv);
+    else if (choice == 3)
+        inventory_sort_products_by_category(inv);
     else {
         std::cout << "Invalid option.\n";
         return;
@@ -243,25 +219,55 @@ static void productMenu(Inventory *inv)
                   << "1. Add\n2. Edit\n3. Remove\n4. Find by ID\n"
                   << "5. Search by name\n6. List all\n7. Sort\n0. Back\n";
 
-        switch (readInt("Choose: ")) {
-            case 1: addProduct(inv); break;
-            case 2: editProduct(inv); break;
-            case 3: removeProduct(inv); break;
+        switch (requireInt("Choose: ")) {
+            case 1:
+                addProduct(inv);
+                break;
+
+            case 2:
+                editProduct(inv);
+                break;
+
+            case 3:
+                removeProduct(inv);
+                break;
+
             case 4: {
-                int id = readInt("Product ID: ");
+                int id = requireInt("Product ID: ");
                 Product *p = inventory_find_product(inv, id);
-                if (p) displayProduct(*p);
-                else std::cout << "Product not found.\n";
+
+                if (p)
+                    displayProduct(*p);
+                else
+                    std::cout << "Product not found.\n";
+
                 break;
             }
-            case 5: searchProducts(inv); break;
-            case 6: listProducts(inv); break;
-            case 7: sortProducts(inv); break;
-            case 0: return;
-            default: std::cout << "Invalid option.\n";
+
+            case 5:
+                searchProducts(inv);
+                break;
+
+            case 6:
+                listProducts(inv);
+                break;
+
+            case 7:
+                sortProducts(inv);
+                break;
+
+            case 0:
+                return;
+
+            default:
+                std::cout << "Invalid option.\n";
         }
     }
 }
+
+// --------------------------------------------------
+// SUPPLIER FUNCTIONS
+// --------------------------------------------------
 
 static void displaySupplier(const Supplier &s)
 {
@@ -283,7 +289,9 @@ static void listSuppliers(Inventory *inv)
 
     for (size_t i = 0; i < count; ++i) {
         const Supplier *s = inventory_supplier_at(inv, i);
-        if (s) displaySupplier(*s);
+
+        if (s)
+            displaySupplier(*s);
     }
 }
 
@@ -302,6 +310,7 @@ static Supplier readSupplierDetails()
 static void addSupplier(Inventory *inv)
 {
     Supplier s = readSupplierDetails();
+
     int id = inventory_add_supplier(inv, &s);
 
     if (id > 0)
@@ -312,7 +321,7 @@ static void addSupplier(Inventory *inv)
 
 static void editSupplier(Inventory *inv)
 {
-    int id = readInt("Supplier ID to edit: ");
+    int id = requireInt("Supplier ID to edit: ");
 
     if (!inventory_find_supplier(inv, id)) {
         std::cout << "Supplier not found.\n";
@@ -328,7 +337,7 @@ static void editSupplier(Inventory *inv)
 
 static void removeSupplier(Inventory *inv)
 {
-    int id = readInt("Supplier ID to remove: ");
+    int id = requireInt("Supplier ID to remove: ");
 
     if (!inventory_find_supplier(inv, id)) {
         std::cout << "Supplier not found.\n";
@@ -353,27 +362,53 @@ static void supplierMenu(Inventory *inv)
                   << "3. Remove supplier\n4. Find supplier by ID\n"
                   << "5. List suppliers\n0. Back\n";
 
-        switch (readInt("Choose: ")) {
-            case 1: addSupplier(inv); break;
-            case 2: editSupplier(inv); break;
-            case 3: removeSupplier(inv); break;
+        switch (requireInt("Choose: ")) {
+            case 1:
+                addSupplier(inv);
+                break;
+
+            case 2:
+                editSupplier(inv);
+                break;
+
+            case 3:
+                removeSupplier(inv);
+                break;
+
             case 4: {
-                int id = readInt("Supplier ID: ");
+                int id = requireInt("Supplier ID: ");
                 Supplier *s = inventory_find_supplier(inv, id);
-                if (s) displaySupplier(*s);
-                else std::cout << "Supplier not found.\n";
+
+                if (s)
+                    displaySupplier(*s);
+                else
+                    std::cout << "Supplier not found.\n";
+
                 break;
             }
-            case 5: listSuppliers(inv); break;
-            case 0: return;
-            default: std::cout << "Invalid option.\n";
+
+            case 5:
+                listSuppliers(inv);
+                break;
+
+            case 0:
+                return;
+
+            default:
+                std::cout << "Invalid option.\n";
         }
     }
 }
 
-static void recordStockTransaction(Inventory *inv, TransactionType type)
+// --------------------------------------------------
+// TRANSACTION FUNCTIONS
+// --------------------------------------------------
+
+static void recordStockTransaction(Inventory *inv,
+                                   TransactionType type)
 {
-    int productId = readInt("Enter product ID: ");
+    int productId = requireInt("Enter product ID: ");
+
     Product *product = inventory_find_product(inv, productId);
 
     if (!product) {
@@ -383,12 +418,12 @@ static void recordStockTransaction(Inventory *inv, TransactionType type)
 
     displayProduct(*product);
 
-    int quantity = readInt(
+    int quantity = requireInt(
         type == TX_IN ? "Quantity received: " :
         type == TX_OUT ? "Quantity sold/removed: " :
                          "Quantity change (+/-): ");
 
-    if (quantity == 0 || quantity == -1) {
+    if (quantity == 0) {
         std::cout << "Invalid quantity.\n";
         return;
     }
@@ -432,7 +467,7 @@ static void recordStockTransaction(Inventory *inv, TransactionType type)
     transaction.supplier_id = -1;
 
     if (type == TX_IN) {
-        int supplierId = readInt(
+        int supplierId = requireInt(
             "Supplier ID (enter 0 if not applicable): ");
 
         if (supplierId < 0) {
@@ -482,24 +517,37 @@ static void recordStockTransaction(Inventory *inv, TransactionType type)
         return;
     }
 
-    int transactionId = inventory_record_transaction(inv, &transaction);
+    // Record the transaction.
+    // The inventory operation may change internal storage,
+    // so do not use the old product pointer afterwards.
+
+    int transactionId =
+        inventory_record_transaction(inv, &transaction);
 
     if (transactionId == 0) {
         std::cout << "Transaction failed. Stock was not changed.\n";
         return;
     }
 
+    // Re-fetch the product after the transaction.
+    int updated_qty = 0;
+
+    const Product *after =
+        inventory_find_product(inv, productId);
+
+    updated_qty = after ? after->quantity_on_hand : 0;
+
     std::cout << "Transaction recorded successfully.\n"
               << "Transaction ID: " << transactionId
-              << "\nUpdated quantity: " << product->quantity_on_hand
+              << "\nUpdated quantity: " << updated_qty
               << "\n";
 
-   if (persistence_save(inv, DATA_FILE)) {
-    std::cout << "Transaction and inventory saved successfully.\n";
-} else {
-    std::cerr << "ERROR: Automatic save failed.\n";
-    std::cerr << "Check the data folder and inventory file path.\n";
-}
+    if (persistence_save(inv, DATA_FILE)) {
+        std::cout << "Transaction and inventory saved successfully.\n";
+    } else {
+        std::cerr << "ERROR: Automatic save failed.\n";
+        std::cerr << "Check the data folder and inventory file path.\n";
+    }
 }
 
 static void showTransactionHistory(Inventory *inv)
@@ -516,9 +564,8 @@ static void showTransactionHistory(Inventory *inv)
     for (size_t i = 0; i < count; ++i) {
         const Transaction *t = inventory_transaction_at(inv, i);
 
-        if (!t) {
+        if (!t)
             continue;
-        }
 
         const char *typeName =
             t->type == TX_IN ? "STOCK IN" :
@@ -545,29 +592,38 @@ static void transactionMenu(Inventory *inv)
                   << "4. View transaction history\n"
                   << "0. Back to main menu\n";
 
-        int choice = readInt("Choose an option: ");
+        int choice = requireInt("Choose an option: ");
 
         switch (choice) {
             case 1:
                 recordStockTransaction(inv, TX_IN);
                 break;
+
             case 2:
                 recordStockTransaction(inv, TX_OUT);
                 break;
+
             case 3:
                 recordStockTransaction(inv, TX_ADJUSTMENT);
                 break;
+
             case 4:
                 showTransactionHistory(inv);
                 break;
+
             case 0:
                 return;
+
             default:
                 std::cout << "Invalid option.\n";
                 break;
         }
     }
 }
+
+// --------------------------------------------------
+// REPORT FUNCTIONS
+// --------------------------------------------------
 
 static void reportsMenu(Inventory *inv)
 {
@@ -576,18 +632,32 @@ static void reportsMenu(Inventory *inv)
                   << "1. Current stock\n2. Low-stock products\n"
                   << "3. Total inventory value\n0. Back\n";
 
-        switch (readInt("Choose: ")) {
-            case 1: report_current_stock(inv, stdout); break;
-            case 2: report_low_stock(inv, stdout); break;
+        switch (requireInt("Choose: ")) {
+            case 1:
+                report_current_stock(inv, stdout);
+                break;
+
+            case 2:
+                report_low_stock(inv, stdout);
+                break;
+
             case 3:
                 std::cout << "Total inventory value: "
-              << report_total_value(inv) << "\n";
-            break;
-            case 0: return;
-            default: std::cout << "Invalid option.\n";
+                          << report_total_value(inv) << "\n";
+                break;
+
+            case 0:
+                return;
+
+            default:
+                std::cout << "Invalid option.\n";
         }
     }
 }
+
+// --------------------------------------------------
+// MAIN FUNCTION
+// --------------------------------------------------
 
 int main()
 {
@@ -599,7 +669,8 @@ int main()
     }
 
     if (!persistence_load(inventory.get(), DATA_FILE)) {
-        std::fprintf(stderr, "Warning: Could not load inventory data.\n");
+        std::fprintf(stderr,
+                     "Warning: Could not load inventory data.\n");
     }
 
     bool running = true;
@@ -611,29 +682,51 @@ int main()
                   << "1. Products\n2. Suppliers\n3. Transactions\n"
                   << "4. Reports\n5. Save inventory\n6. Load inventory\n0. Exit\n";
 
-        switch (readInt("Choose an option: ")) {
-            case 1: productMenu(inventory.get()); break;
-            case 2: supplierMenu(inventory.get()); break;
+        switch (requireInt("Choose an option: ")) {
+            case 1:
+                productMenu(inventory.get());
+                break;
+
+            case 2:
+                supplierMenu(inventory.get());
+                break;
+
             case 3:
                 transactionMenu(inventory.get());
-             break;
-            case 4: reportsMenu(inventory.get()); break;
+                break;
+
+            case 4:
+                reportsMenu(inventory.get());
+                break;
+
             case 5:
                 std::cout << (persistence_save(inventory.get(), DATA_FILE)
-                    ? "Inventory saved.\n" : "Save failed.\n");
+                    ? "Inventory saved.\n"
+                    : "Save failed.\n");
                 break;
+
             case 6:
-                std::cout << (persistence_load(inventory.get(), DATA_FILE)
-                    ? "Load operation completed.\n" : "Load failed.\n");
+                inventory_clear(inventory.get());
+
+                if (persistence_load(inventory.get(), DATA_FILE)) {
+                    std::cout << "Inventory reloaded.\n";
+                } else {
+                    std::cout << "Inventory load failed.\n";
+                }
+
                 break;
+
             case 0:
                 if (!persistence_save(inventory.get(), DATA_FILE))
                     std::cout << "Warning: Save failed.\n";
                 else
                     std::cout << "Inventory saved. Goodbye!\n";
+
                 running = false;
                 break;
-            default: std::cout << "Invalid option.\n";
+
+            default:
+                std::cout << "Invalid option.\n";
         }
     }
 

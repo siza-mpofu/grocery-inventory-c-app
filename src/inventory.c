@@ -87,6 +87,8 @@ int inventory_add_product(Inventory *inventory, const Product *product)
         return 0;
     }
 
+    /* Reject duplicate names always; reject duplicate IDs only for
+       explicit (loaded) IDs, since new products arrive with id == 0. */
     for (i = 0; i < inventory->product_count; ++i) {
         if (strcmp(inventory->products[i].name, product->name) == 0 ||
             (product->id > 0 &&
@@ -283,66 +285,79 @@ size_t inventory_search_products(
     return count;
 }
 
+/* Compare products alphabetically by name. */
+static int cmp_name(const void *a, const void *b)
+{
+    const Product *pa = (const Product *)a;
+    const Product *pb = (const Product *)b;
+
+    return strcmp(pa->name, pb->name);
+}
+
+/* Compare products by quantity, from lowest to highest. */
+static int cmp_quantity(const void *a, const void *b)
+{
+    const Product *pa = (const Product *)a;
+    const Product *pb = (const Product *)b;
+
+    if (pa->quantity_on_hand < pb->quantity_on_hand) {
+        return -1;
+    }
+
+    if (pa->quantity_on_hand > pb->quantity_on_hand) {
+        return 1;
+    }
+
+    return 0;
+}
+
+/* Compare products by category. */
+static int cmp_category(const void *a, const void *b)
+{
+    const Product *pa = (const Product *)a;
+    const Product *pb = (const Product *)b;
+
+    if (pa->category < pb->category) {
+        return -1;
+    }
+
+    if (pa->category > pb->category) {
+        return 1;
+    }
+
+    return 0;
+}
+
+/* Sort products alphabetically by name using qsort. */
 void inventory_sort_products_by_name(Inventory *inventory)
 {
-    size_t i;
-    size_t j;
-
-    if (inventory == NULL) {
-        return;
-    }
-
-    for (i = 0; i < inventory->product_count; ++i) {
-        for (j = i + 1; j < inventory->product_count; ++j) {
-            if (strcmp(inventory->products[i].name,
-                       inventory->products[j].name) > 0) {
-                Product temp = inventory->products[i];
-                inventory->products[i] = inventory->products[j];
-                inventory->products[j] = temp;
-            }
-        }
+    if (inventory != NULL && inventory->product_count > 1) {
+        qsort(inventory->products,
+              inventory->product_count,
+              sizeof(Product),
+              cmp_name);
     }
 }
 
+/* Sort products by quantity, lowest first. */
 void inventory_sort_products_by_quantity(Inventory *inventory)
 {
-    size_t i;
-    size_t j;
-
-    if (inventory == NULL) {
-        return;
-    }
-
-    for (i = 0; i < inventory->product_count; ++i) {
-        for (j = i + 1; j < inventory->product_count; ++j) {
-            if (inventory->products[i].quantity_on_hand >
-                inventory->products[j].quantity_on_hand) {
-                Product temp = inventory->products[i];
-                inventory->products[i] = inventory->products[j];
-                inventory->products[j] = temp;
-            }
-        }
+    if (inventory != NULL && inventory->product_count > 1) {
+        qsort(inventory->products,
+              inventory->product_count,
+              sizeof(Product),
+              cmp_quantity);
     }
 }
 
+/* Sort products by category using qsort. */
 void inventory_sort_products_by_category(Inventory *inventory)
 {
-    size_t i;
-    size_t j;
-
-    if (inventory == NULL) {
-        return;
-    }
-
-    for (i = 0; i < inventory->product_count; ++i) {
-        for (j = i + 1; j < inventory->product_count; ++j) {
-            if (inventory->products[i].category >
-                inventory->products[j].category) {
-                Product temp = inventory->products[i];
-                inventory->products[i] = inventory->products[j];
-                inventory->products[j] = temp;
-            }
-        }
+    if (inventory != NULL && inventory->product_count > 1) {
+        qsort(inventory->products,
+              inventory->product_count,
+              sizeof(Product),
+              cmp_category);
     }
 }
 
@@ -412,7 +427,6 @@ Supplier *inventory_find_supplier(Inventory *inventory, int id)
 
     return NULL;
 }
-
 
 int inventory_edit_supplier(
     Inventory *inventory,
@@ -493,7 +507,6 @@ int inventory_remove_supplier(Inventory *inventory, int id)
 
     return 0;
 }
-
 
 size_t inventory_supplier_count(const Inventory *inventory)
 {
@@ -654,4 +667,19 @@ const Transaction *inventory_transaction_at(
     }
 
     return &inventory->transactions[index];
+}
+
+void inventory_clear(Inventory *inventory)
+{
+    if (inventory == NULL) {
+        return;
+    }
+
+    inventory->product_count = 0;
+    inventory->supplier_count = 0;
+    inventory->transaction_count = 0;
+
+    inventory->next_product_id = 1001;
+    inventory->next_supplier_id = 1;
+    inventory->next_transaction_id = 1;
 }

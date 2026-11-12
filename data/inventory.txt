@@ -1,11 +1,23 @@
 # Grocery inventory data
 [PRODUCTS]
-1001|Sunflower Oil 1L|Oil|bottle|49|12|3.49|
-1002|Sugar|Sugar|5kg|0|8|9.00|
+1005|Canned Beans 410g|Canned|can|30|10|1.80|1
+1006|Orange Juice 1L|Drinks|carton|6|10|2.60|1
+1003|Rice 2kg|Rice|bag|30|10|4.50|2
+1002|Sugar|Sugar|5kg|7|8|9.00|2
+1001|Sunflower Oil 1L|Oil|bottle|45|12|3.49|1
+1004|Wheat Flour 2kg|Flour|bag|18|8|3.75|2
+
 [SUPPLIERS]
+1|Fresh Foods Distributors|Tariro Moyo|0771234567|freshfoods@example.com
+2|National Grocery Wholesalers|Tendai Dube|0712345678|wholesale@example.com
+
 [TRANSACTIONS]
-1|2026-10-27T11:11:20|0|1001|3|-1|cooking oil in 
-2|2026-10-27T11:11:37|1|1001|-2|-1|cooking oil sold 
-3|2026-10-27T11:35:50|0|1002|3|-1|sugar in 
-4|2026-10-27T11:39:12|1|1002|-3|-1|sugar sold 
-5|2026-10-27T11:43:16|1|1002|-7|-1|sugar out 
+1|2026-10-27T11:11:20|IN|1001|3|-1|cooking oil in
+2|2026-10-27T11:11:37|OUT|1001|-2|-1|cooking oil sold
+3|2026-10-27T11:35:50|IN|1002|3|-1|sugar in
+4|2026-10-27T11:39:12|OUT|1002|-3|-1|sugar sold
+5|2026-10-27T11:43:16|OUT|1002|-7|-1|sugar out
+6|2026-10-27T14:02:39|IN|1002|7|-1|sugar in
+7|2026-10-30T14:20:52|IN|1003|5|2|Rice bought
+8|2026-10-30T14:21:15|ADJUSTMENT|1001|-3|-1|oil gone bad
+9|2026-11-11T13:39:33|ADJUSTMENT|1001|-1|-1|Quantity update

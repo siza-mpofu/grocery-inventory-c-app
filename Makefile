@@ -1,7 +1,9 @@
+
 CC = gcc
 CXX = g++
-CFLAGS = -std=c11 -Wall -Wextra -Wpedantic -g -O2
-CXXFLAGS = -std=c++17 -Wall -Wextra -Wpedantic -g -O2
+
+CFLAGS = -std=c11 -Wall -Wextra -Wpedantic -Werror -g -O2
+CXXFLAGS = -std=c++17 -Wall -Wextra -Wpedantic -Werror -g -O2
 
 INCDIR = include
 SRCDIR = src
@@ -21,13 +23,14 @@ all: $(TARGET)
 $(TARGET): $(C_OBJECTS) $(CPP_OBJECTS)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
-$(OBJDIR)/%.o: $(SRCDIR)/%.c
-	mkdir -p $(OBJDIR)
+$(OBJDIR)/%.o: $(SRCDIR)/%.c | $(OBJDIR)
 	$(CC) $(CFLAGS) -I$(INCDIR) -c $< -o $@
 
-$(OBJDIR)/%.opp: $(SRCDIR)/%.cpp
+$(OBJDIR)/%.opp: $(SRCDIR)/%.cpp | $(OBJDIR)
+	$(CXX) $(CXXFLAGS) -I$(INCDIR) -Isrc -c $< -o $@
+
+$(OBJDIR):
 	mkdir -p $(OBJDIR)
-	$(CXX) $(CXXFLAGS) -I$(INCDIR) -c $< -o $@
 
 clean:
-	rm -rf $(OBJDIR)/*.o $(OBJDIR)/*.opp $(TARGET)
+	rm -rf $(OBJDIR)
